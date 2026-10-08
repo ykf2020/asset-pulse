@@ -1,0 +1,204 @@
+@import 'tailwindcss';
+
+/* ------------------------------------------------------------------ */
+/* 設計 token                                                          */
+/*                                                                    */
+/* 色票來自 dataviz 規範的驗證過配色：八個分類色槽（亮/暗各自選過步階，    */
+/* 不是直接翻轉），加上狀態色與圖表 chrome。分類色一律「依帳戶類型固定對應」， */
+/* 不隨排名或篩選重新上色。                                              */
+/* ------------------------------------------------------------------ */
+
+@layer base {
+  :root {
+    color-scheme: light;
+
+    --plane: #f9f9f7;
+    --surface: #fcfcfb;
+    --surface-sunken: #f1f1ed;
+
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-muted: #898781;
+
+    --hairline: #e1e0d9;
+    --axis: #c3c2b7;
+    --ring: rgb(11 11 11 / 0.1);
+
+    --brand: #2a78d6;
+    --brand-ink: #ffffff;
+
+    /* 狀態色：固定不隨主題改，永遠搭配圖示＋文字，不單靠顏色 */
+    --good: #0ca30c;
+    --warning: #fab219;
+    --serious: #ec835a;
+    --critical: #d03b3b;
+
+    /* 漲跌文字 */
+    --up: #006300;
+    --down: #d03b3b;
+
+    /* 分類色槽 1–8（固定順序，經 CVD 驗證） */
+    --s1: #2a78d6;
+    --s2: #eb6834;
+    --s3: #1baf7a;
+    --s4: #eda100;
+    --s5: #e87ba4;
+    --s6: #008300;
+    --s7: #4a3aa7;
+    --s8: #e34948;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme='light'])) {
+      color-scheme: dark;
+
+      --plane: #0d0d0d;
+      --surface: #1a1a19;
+      --surface-sunken: #121211;
+
+      --ink: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-muted: #898781;
+
+      --hairline: #2c2c2a;
+      --axis: #383835;
+      --ring: rgb(255 255 255 / 0.1);
+
+      --brand: #3987e5;
+      --brand-ink: #0d0d0d;
+
+      --up: #0ca30c;
+      --down: #e66767;
+
+      --s1: #3987e5;
+      --s2: #d95926;
+      --s3: #199e70;
+      --s4: #c98500;
+      --s5: #d55181;
+      --s6: #008300;
+      --s7: #9085e9;
+      --s8: #e66767;
+    }
+  }
+
+  :root[data-theme='dark'] {
+    color-scheme: dark;
+
+    --plane: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-sunken: #121211;
+
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --ink-muted: #898781;
+
+    --hairline: #2c2c2a;
+    --axis: #383835;
+    --ring: rgb(255 255 255 / 0.1);
+
+    --brand: #3987e5;
+    --brand-ink: #0d0d0d;
+
+    --up: #0ca30c;
+    --down: #e66767;
+
+    --s1: #3987e5;
+    --s2: #d95926;
+    --s3: #199e70;
+    --s4: #c98500;
+    --s5: #d55181;
+    --s6: #008300;
+    --s7: #9085e9;
+    --s8: #e66767;
+  }
+}
+
+@theme inline {
+  --color-plane: var(--plane);
+  --color-surface: var(--surface);
+  --color-sunken: var(--surface-sunken);
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-muted: var(--ink-muted);
+
+  --color-hairline: var(--hairline);
+  --color-axis: var(--axis);
+
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+
+  --color-good: var(--good);
+  --color-warning: var(--warning);
+  --color-serious: var(--serious);
+  --color-critical: var(--critical);
+
+  --color-up: var(--up);
+  --color-down: var(--down);
+
+  --color-s1: var(--s1);
+  --color-s2: var(--s2);
+  --color-s3: var(--s3);
+  --color-s4: var(--s4);
+  --color-s5: var(--s5);
+  --color-s6: var(--s6);
+  --color-s7: var(--s7);
+  --color-s8: var(--s8);
+
+  --font-sans:
+    system-ui, -apple-system, 'Segoe UI', 'Noto Sans TC', 'PingFang TC',
+    'Microsoft JhengHei', sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--plane);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    /* iOS 彈性捲動時露出的底色與頁面一致 */
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* iOS 低於 16px 的輸入框會觸發自動放大，一律撐到 16px 以上 */
+  input,
+  select,
+  textarea,
+  button {
+    font-family: inherit;
+    font-size: max(16px, 1rem);
+  }
+
+  /* 數字欄位對齊用；大型展示數字刻意不用等寬 */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-x {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
