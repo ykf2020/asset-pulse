@@ -10,6 +10,20 @@ import {
 const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets'
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
+/** 範圍裡指名的分頁不存在時，Google 回 400 配這句話 */
+const MISSING_RANGE = /Unable to parse range/i
+
+/**
+ * 「分頁還沒建立」不是錯誤，是這個 App 的正常起始狀態（使用者剛開一份空白
+ * 試算表）。獨立成一個型別，讓讀取層可以優雅處理而不是把 400 丟給使用者。
+ */
+class MissingRangeError extends SheetsError {
+  constructor(detail: string) {
+    super(`Google Sheet 裡找不到指定的分頁：${detail}`, 400)
+    this.name = 'MissingRangeError'
+  }
+}
+
 function requireEnv(name: string): string {
   const v = process.env[name]
   if (!v) {
@@ -106,6 +120,11 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     if (res.status === 404) {
       throw new SheetsError('找不到這份 Google Sheet，請確認 SHEET_ID。', 404)
     }
+    // 分頁不存在時 Google 回的是 400 "Unable to parse range"，
+    // 呼叫端要能分辨這種情況（分頁還沒建立）與真正的錯誤
+    if (res.status === 400 && MISSING_RANGE.test(body)) {
+      throw new MissingRangeError(body.slice(0, 300))
+    }
     throw new SheetsError(`Google Sheets API 錯誤 (${res.status}): ${body.slice(0, 500)}`, 502)
   }
 
@@ -124,15 +143,20 @@ export function fullRange(title: string): string {
   return `${quoteTitle(title)}!A:ZZ`
 }
 
+/** 分頁不存在時回空陣列，而不是丟錯 */
 export async function getValues(title: string): Promise<unknown[][]> {
-  const data = await call<{ values?: unknown[][] }>(
-    `/values/${encodeURIComponent(fullRange(title))}`,
-  )
-  return data.values ?? []
+  try {
+    const data = await call<{ values?: unknown[][] }>(
+      `/values/${encodeURIComponent(fullRange(title))}`,
+    )
+    return data.values ?? []
+  } catch (err) {
+    if (err instanceof MissingRangeError) return []
+    throw err
+  }
 }
 
-/** 一次抓多個分頁，省掉來回往返（首頁要三張表） */
-export async function batchGetValues(
+async function rawBatchGet(
   titles: readonly string[],
 ): Promise<Record<string, unknown[][]>> {
   const params = titles
@@ -146,6 +170,34 @@ export async function batchGetValues(
     out[title] = data.valueRanges?.[i]?.values ?? []
   })
   return out
+}
+
+/**
+ * 一次抓多個分頁，省掉來回往返（首頁要三張表）。
+ *
+ * 只要其中一個分頁不存在，Google 就會讓**整個** batchGet 回 400
+ * `Unable to parse range`。而「分頁還沒建立」正是使用者第一次打開 App 的
+ * 狀態 —— 那時 /api/data 會整個失敗，連「幫我建立分頁」的按鈕都看不到。
+ *
+ * 所以先照常一次抓完（分頁齊全時只花一次往返），只有在遇到那個 400 時才
+ * 多問一次有哪些分頁，然後只抓存在的，缺的回空陣列。
+ */
+export async function batchGetValues(
+  titles: readonly string[],
+): Promise<Record<string, unknown[][]>> {
+  try {
+    return await rawBatchGet(titles)
+  } catch (err) {
+    if (!(err instanceof MissingRangeError)) throw err
+
+    const existing = new Set((await getSheetMeta()).map((s) => s.title))
+    const present = titles.filter((t) => existing.has(t))
+    const values = present.length > 0 ? await rawBatchGet(present) : {}
+
+    const out: Record<string, unknown[][]> = {}
+    for (const title of titles) out[title] = values[title] ?? []
+    return out
+  }
 }
 
 /* ------------------------------------------------------------------ */
