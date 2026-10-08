@@ -1,20 +1,21 @@
 import { useQuery } from '@tanstack/react-query'
-import { Check, ChevronLeft, CloudUpload, SkipForward, X } from 'lucide-react'
+import { Check, CloudUpload, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ACCOUNT_TYPE_HINT, ACCOUNT_TYPE_LABEL, type ReviewEntryInput } from '@shared/model'
-import { delta, fxRateFor, snapshotTwd, sumTotals, type Totals } from '@shared/money'
-import { AmountInput } from '@/components/AmountInput'
+import type { ReviewEntryInput } from '@shared/model'
+import { delta, fxRateFor, sumTotals, type Totals } from '@shared/money'
 import { DeltaBadge } from '@/components/DeltaBadge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, LoadingBlock, Notice } from '@/components/ui/Feedback'
 import { Field, TextInput } from '@/components/ui/Field'
+import { Segmented } from '@/components/ui/Segmented'
 import { useOverview } from '@/hooks/useData'
 import { useSubmitReview } from '@/hooks/useMutations'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import type { AccountView } from '@/lib/derive'
+import { groupAccounts } from '@/lib/grouping'
 import {
   formatAmountWhileTyping,
   formatDateFull,
@@ -28,31 +29,33 @@ type Draft = Record<string, string>
 
 interface Line {
   view: AccountView
+  /** 輸入框裡的原始文字（含千分位） */
+  raw: string
   /** 這次填的金額（原幣別）；沒填就是 null */
   entered: number | null
-  /** 實際採計的金額：沒填就沿用上次 */
+  /** 實際採計的金額：沒填就沿用既有的值 */
   effective: number | null
   amountTwd: number
-  carriedForward: boolean
 }
 
-function buildLines(views: AccountView[], draft: Draft, usdRate: number): Line[] {
+function buildLines(views: readonly AccountView[], draft: Draft, usdRate: number): Line[] {
   return views.map((view) => {
-    const entered = parseAmountInput(draft[view.account.id] ?? '')
+    const raw = draft[view.account.id] ?? ''
+    const entered = parseAmountInput(raw)
     const previous = view.latest?.amount ?? null
     const effective = entered ?? previous
     const rate = fxRateFor(view.account.currency, usdRate)
     return {
       view,
+      raw,
       entered,
       effective,
       amountTwd: effective === null ? 0 : Math.round(effective * rate * 100) / 100,
-      carriedForward: entered === null && previous !== null,
     }
   })
 }
 
-function totalsOf(lines: Line[]): Totals {
+function totalsOf(lines: readonly Line[]): Totals {
   return sumTotals(
     lines
       .filter((l) => l.effective !== null)
@@ -74,7 +77,7 @@ export function Review() {
   const [date, setDate] = useState(todayIso())
   const [rateInput, setRateInput] = useState('')
   const [draft, setDraft] = useState<Draft>({})
-  const [step, setStep] = useState(0)
+  const [scope, setScope] = useState<'pending' | 'all'>('pending')
   const [done, setDone] = useState<{
     queued: boolean
     merged: boolean
@@ -83,11 +86,20 @@ export function Review() {
     updatedCount: number
   } | null>(null)
 
-  /** 選到的日期已經盤點過的話，這次送出會併進那一筆而不是另外開一筆 */
-  const existingReview = data?.reviews.find((r) => r.date === date)
-
   const views = overview?.accounts ?? []
   const hasUsd = views.some((v) => v.account.currency === 'USD')
+
+  /** 選到的日期已經盤點過的話，送出會併進那一筆而不是另外開一筆 */
+  const existingReview = data?.reviews.find((r) => r.date === date)
+
+  /** 這個日期還沒有納入的帳戶 —— 盤點完才補建的新帳戶會落在這裡 */
+  const pendingIds = useMemo(() => {
+    if (!data || !existingReview) return new Set<string>()
+    const covered = new Set(
+      data.snapshots.filter((s) => s.review_id === existingReview.id).map((s) => s.account_id),
+    )
+    return new Set(views.filter((v) => !covered.has(v.account.id)).map((v) => v.account.id))
+  }, [data, existingReview, views])
 
   const usdRate = useMemo(() => {
     const typed = parseAmountInput(rateInput)
@@ -98,6 +110,22 @@ export function Review() {
   const lines = useMemo(() => buildLines(views, draft, usdRate), [views, draft, usdRate])
   const totals = useMemo(() => totalsOf(lines), [lines])
   const netDelta = delta(totals.netWorth, overview?.totals.netWorth ?? null)
+  const filledCount = lines.filter((l) => l.entered !== null).length
+
+  // 併入模式才需要過濾 —— 新的一天本來就每個帳戶都要看
+  const showScopeFilter = existingReview !== undefined && pendingIds.size > 0
+  const visibleLines =
+    showScopeFilter && scope === 'pending'
+      ? lines.filter((l) => pendingIds.has(l.view.account.id))
+      : lines
+
+  const groups = useMemo(() => {
+    const byId = new Map(visibleLines.map((l) => [l.view.account.id, l]))
+    return groupAccounts(visibleLines.map((l) => l.view)).map((group) => ({
+      ...group,
+      lines: group.items.map((v) => byId.get(v.account.id)!).filter(Boolean),
+    }))
+  }, [visibleLines])
 
   if (!overview) return <LoadingBlock />
 
@@ -111,19 +139,6 @@ export function Review() {
     )
   }
 
-  const lastStep = views.length + 1
-  const currentView = step >= 1 && step <= views.length ? views[step - 1]! : null
-  const progress = (step / lastStep) * 100
-
-  function next() {
-    setStep((s) => Math.min(s + 1, lastStep))
-  }
-  function back() {
-    if (step === 0) navigate(-1)
-    else setStep((s) => s - 1)
-  }
-
-  /** 直接離開整個盤點流程。已經填過東西就先問一聲，避免白做一輪。 */
   function cancel() {
     const hasInput = Object.values(draft).some((v) => v.trim() !== '')
     if (hasInput && !window.confirm('要放棄這次盤點嗎？已經填的內容不會儲存。')) return
@@ -160,8 +175,8 @@ export function Review() {
       <div className="flex min-h-dvh flex-col items-center justify-center gap-5 px-6 text-center safe-top safe-bottom">
         <div
           className={cn(
-            'flex size-16 items-center justify-center rounded-full',
-            done.queued ? 'bg-sunken text-serious' : 'bg-sunken text-good',
+            'flex size-16 items-center justify-center rounded-full bg-sunken',
+            done.queued ? 'text-serious' : 'text-good',
           )}
         >
           {done.queued ? <CloudUpload className="size-8" /> : <Check className="size-8" />}
@@ -209,230 +224,134 @@ export function Review() {
   }
 
   /* ---------------------------------------------------------------- */
-  /* 流程                                                              */
+  /* 盤點（單頁）                                                      */
   /* ---------------------------------------------------------------- */
 
   return (
-    <div className="flex min-h-dvh flex-col safe-top safe-bottom">
-      <header className="px-4 pt-3 pb-2">
-        {/*
-          左右兩個按鈕是不同的動作：左邊退一步，右邊直接離開整個流程。
-          帳戶一多，只有「上一步」的話要按幾十次才出得去。
-        */}
-        <div className="flex items-center justify-between">
-          {step === 0 ? (
-            <span className="size-10" />
-          ) : (
-            <button
-              type="button"
-              onClick={back}
-              className="-ml-2 flex size-10 items-center justify-center rounded-full text-ink-2 active:bg-sunken"
-              aria-label="上一步"
-            >
-              <ChevronLeft className="size-6" aria-hidden />
-            </button>
-          )}
-
-          <p className="text-sm font-medium text-ink-2">
-            {step === 0
-              ? '盤點設定'
-              : step === lastStep
-                ? '確認送出'
-                : `${step} / ${views.length}`}
-          </p>
-
+    <div className="flex min-h-dvh flex-col">
+      {/* safe-top 只由 header 負責，外層再加一次會變成兩倍留白 */}
+      <header className="sticky top-0 z-10 border-b border-hairline bg-plane/90 px-4 pt-3 pb-3 backdrop-blur-xl safe-top">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="text-lg font-semibold">盤點</h1>
+            <p className="text-sm text-ink-muted">
+              已填 {filledCount} / {views.length} 個帳戶
+            </p>
+          </div>
           <button
             type="button"
             onClick={cancel}
-            className="-mr-2 flex size-10 items-center justify-center rounded-full text-ink-2 active:bg-sunken"
             aria-label="結束盤點"
+            className="-mr-2 flex size-10 shrink-0 items-center justify-center rounded-full text-ink-2 active:bg-sunken"
           >
             <X className="size-5" aria-hidden />
           </button>
         </div>
-
-        <div
-          className="mt-2 h-1 overflow-hidden rounded-full bg-sunken"
-          role="progressbar"
-          aria-valuenow={Math.round(progress)}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="盤點進度"
-        >
-          <div
-            className="h-full rounded-full bg-brand transition-[width] duration-300"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
       </header>
 
-      <main className="flex-1 px-4 py-4">
-        {/* ── 步驟 0：日期與匯率 ── */}
-        {step === 0 && (
-          <div className="space-y-4">
-            <h1 className="px-1 text-2xl font-semibold">這次盤點</h1>
+      <main className="flex-1 space-y-4 px-4 py-4">
+        <Card className="space-y-4">
+          <div className={cn('grid gap-4', hasUsd && 'grid-cols-2')}>
+            <Field label="盤點日期">
+              {(id) => (
+                <TextInput
+                  id={id}
+                  type="date"
+                  value={date}
+                  max={todayIso()}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              )}
+            </Field>
 
-            <Card className="space-y-4">
-              <Field label="盤點日期">
+            {hasUsd && (
+              <Field label="美元匯率">
                 {(id) => (
                   <TextInput
                     id={id}
-                    type="date"
-                    value={date}
-                    max={todayIso()}
-                    onChange={(e) => setDate(e.target.value)}
+                    inputMode="decimal"
+                    value={rateInput || (fx.data ? String(fx.data.rate) : '')}
+                    placeholder={fx.isLoading ? '取得中…' : '32.0'}
+                    onChange={(e) => setRateInput(formatAmountWhileTyping(e.target.value))}
                   />
                 )}
               </Field>
-
-              {hasUsd && (
-                <Field
-                  label="美元匯率（USD → TWD）"
-                  hint={
-                    fx.data?.note ??
-                    (fx.data?.source === 'live'
-                      ? '已帶入今日即時匯率，可以直接改'
-                      : '請確認匯率')
-                  }
-                >
-                  {(id) => (
-                    <TextInput
-                      id={id}
-                      inputMode="decimal"
-                      value={rateInput || (fx.data ? String(fx.data.rate) : '')}
-                      placeholder={fx.isLoading ? '取得中…' : '32.0'}
-                      onChange={(e) => setRateInput(formatAmountWhileTyping(e.target.value))}
-                    />
-                  )}
-                </Field>
-              )}
-            </Card>
-
-            {existingReview && (
-              <Notice tone="info" title="這一天已經盤點過了">
-                送出後會<strong>併入</strong>那一筆，不會另外開一筆。只有你這次填的帳戶會被更新，
-                跳過的維持當天原本的金額。
-              </Notice>
             )}
-
-            <p className="px-1 text-sm text-ink-muted">
-              接下來會一個帳戶一頁，共 {views.length} 個。
-              {existingReview ? '不用改的直接跳過。' : '沒改變的可以直接跳過，會沿用上次的金額。'}
-            </p>
           </div>
+
+          {hasUsd && fx.data?.note && (
+            <p className="text-sm text-serious">{fx.data.note}</p>
+          )}
+        </Card>
+
+        {existingReview && (
+          <Notice tone="info" title="這一天已經盤點過了">
+            送出後會<strong>併入</strong>那一筆。只有你改動的帳戶會被更新，沒填的維持當天原本的金額。
+          </Notice>
         )}
 
-        {/* ── 步驟 1..N：逐一填金額 ── */}
-        {currentView && (
-          <AccountStep
-            key={currentView.account.id}
-            view={currentView}
-            value={draft[currentView.account.id] ?? ''}
-            usdRate={usdRate}
-            onChange={(v) =>
-              setDraft((d) => ({ ...d, [currentView.account.id]: v }))
-            }
-            onEnter={next}
+        {showScopeFilter && (
+          <Segmented
+            aria-label="要顯示哪些帳戶"
+            className="w-full"
+            options={[
+              { value: 'pending', label: `待補 (${pendingIds.size})` },
+              { value: 'all', label: `全部 (${views.length})` },
+            ]}
+            value={scope}
+            onChange={setScope}
           />
         )}
 
-        {/* ── 最後一步：確認 ── */}
-        {step === lastStep && (
-          <div className="space-y-4">
-            <h1 className="px-1 text-2xl font-semibold">確認一下</h1>
+        <p className="px-1 text-sm text-ink-muted">
+          不用改的留空就好
+          {existingReview ? '，會維持當天原本的金額。' : '，會沿用上次的金額。'}
+        </p>
 
-            <Card>
-              <p className="text-sm text-ink-muted">盤點後的淨資產</p>
-              <p className="mt-1 text-[2.5rem] leading-none font-semibold tracking-tight">
-                {formatTwd(totals.netWorth)}
-              </p>
-              {overview.hasReviews && (
-                <div className="mt-2">
-                  <DeltaBadge delta={netDelta} size="sm" />
-                </div>
-              )}
-              <dl className="mt-4 flex gap-6 border-t border-hairline pt-3 text-sm">
-                <div>
-                  <dt className="text-ink-muted">總資產</dt>
-                  <dd className="font-medium tnum">{formatTwd(totals.assets)}</dd>
-                </div>
-                <div>
-                  <dt className="text-ink-muted">總負債</dt>
-                  <dd className="font-medium tnum">{formatTwd(totals.liabilities)}</dd>
-                </div>
-              </dl>
-            </Card>
-
+        {groups.map((group) => (
+          <section key={group.key}>
+            <h2 className="mb-1.5 px-1 text-sm font-medium text-ink-muted">{group.label}</h2>
             <Card className="p-0">
               <ul className="divide-y divide-hairline">
-                {lines.map((line) => (
-                  <li
-                    key={line.view.account.id}
-                    className="flex items-center justify-between gap-3 px-4 py-3"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setStep(views.indexOf(line.view) + 1)}
-                      className="min-w-0 flex-1 text-left"
-                    >
-                      <span className="block truncate font-medium text-ink">
-                        {line.view.account.name}
-                      </span>
-                      <span className="text-sm text-ink-muted">
-                        {line.effective === null
-                          ? '尚未填過'
-                          : line.carriedForward
-                            ? '沿用上次'
-                            : formatMoney(line.effective, line.view.account.currency)}
-                      </span>
-                    </button>
-                    <span className="shrink-0 text-right">
-                      <span className="block font-medium text-ink tnum">
-                        {line.view.account.is_liability && line.amountTwd > 0 ? '−' : ''}
-                        {formatTwd(line.amountTwd)}
-                      </span>
-                      <DeltaBadge
-                        delta={delta(
-                          line.amountTwd,
-                          line.view.latest ? snapshotTwd(line.view.latest) : null,
-                        )}
-                        invert={line.view.account.is_liability}
-                        showPercent={false}
-                        size="sm"
-                      />
-                    </span>
+                {group.lines.map((line) => (
+                  <li key={line.view.account.id}>
+                    <AmountRow
+                      line={line}
+                      usdRate={usdRate}
+                      onChange={(value) =>
+                        setDraft((d) => ({ ...d, [line.view.account.id]: value }))
+                      }
+                    />
                   </li>
                 ))}
               </ul>
             </Card>
+          </section>
+        ))}
 
-            {submit.error && <Notice tone="error">{(submit.error as Error).message}</Notice>}
-          </div>
-        )}
+        {submit.error && <Notice tone="error">{(submit.error as Error).message}</Notice>}
       </main>
 
-      <footer className="sticky bottom-0 border-t border-hairline bg-surface/90 px-4 py-3 backdrop-blur-xl safe-bottom">
-        {step === lastStep ? (
-          <Button block size="lg" loading={submit.isPending} onClick={() => void send()}>
-            {existingReview ? '併入當天的盤點' : '送出盤點'}
-          </Button>
-        ) : (
-          <div className="flex gap-3">
-            {currentView && (
-              <Button
-                variant="secondary"
-                size="lg"
-                onClick={next}
-                icon={<SkipForward className="size-5" />}
-              >
-                跳過
-              </Button>
-            )}
-            <Button block size="lg" onClick={next} disabled={step === 0 && hasUsd && usdRate <= 0}>
-              {step === views.length ? '看看結果' : '下一個'}
-            </Button>
+      <footer className="sticky bottom-0 border-t border-hairline bg-surface/90 px-4 pt-3 pb-3 backdrop-blur-xl safe-bottom">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm text-ink-muted">盤點後的淨資產</p>
+            <p className="text-2xl leading-tight font-semibold tracking-tight">
+              {formatTwd(totals.netWorth)}
+            </p>
           </div>
-        )}
+          {overview.hasReviews && <DeltaBadge delta={netDelta} size="sm" />}
+        </div>
+
+        <Button
+          block
+          size="lg"
+          loading={submit.isPending}
+          disabled={hasUsd && usdRate <= 0}
+          onClick={() => void send()}
+        >
+          {existingReview ? '併入當天的盤點' : '送出盤點'}
+        </Button>
       </footer>
     </div>
   )
@@ -440,87 +359,75 @@ export function Review() {
 
 /* ------------------------------------------------------------------ */
 
-function AccountStep({
-  view,
-  value,
+function AmountRow({
+  line,
   usdRate,
   onChange,
-  onEnter,
 }: {
-  view: AccountView
-  value: string
+  line: Line
   usdRate: number
   onChange: (value: string) => void
-  onEnter: () => void
 }) {
-  const { account, latest } = view
-  const entered = parseAmountInput(value)
-  const previousAmount = latest?.amount ?? null
+  const { view, entered } = line
+  const { account } = view
+  const previous = view.latest?.amount ?? null
   const rate = fxRateFor(account.currency, usdRate)
-  const amountTwd = entered === null ? null : entered * rate
+  const inputId = `amount-${account.id}`
 
   return (
-    <div className="space-y-4">
-      <div className="px-1">
-        <p className="text-sm text-ink-muted">
-          {ACCOUNT_TYPE_LABEL[account.type]}
-          {account.institution && `・${account.institution}`}
+    <div className="flex items-center gap-3 px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <label htmlFor={inputId} className="block truncate font-medium text-ink">
+          {account.name}
+        </label>
+        <p className="mt-0.5 truncate text-sm text-ink-muted">
+          {previous === null ? (
+            <span className="text-serious">還沒填過</span>
+          ) : (
+            <>上次 {formatMoney(previous, account.currency)}</>
+          )}
+          {account.currency === 'USD' && entered !== null && (
+            <> ・≈ {formatTwd(entered * rate)}</>
+          )}
         </p>
-        <h1 className="mt-0.5 text-2xl font-semibold">{account.name}</h1>
-        {ACCOUNT_TYPE_HINT[account.type] && (
-          <p className="mt-1 text-sm text-ink-2">{ACCOUNT_TYPE_HINT[account.type]}</p>
-        )}
       </div>
 
-      <Card>
-        <AmountInput
-          value={value}
-          onChange={onChange}
-          currency={account.currency}
-          label={`${account.name} 金額`}
-          autoFocus
-          onEnter={onEnter}
-        />
+      <div className="shrink-0 text-right">
+        <div className="flex items-baseline justify-end gap-1">
+          <span className="text-sm text-ink-muted">
+            {account.currency === 'USD' ? 'US$' : 'NT$'}
+          </span>
+          {/*
+            留空就是「不改」—— 所以 placeholder 直接放既有的金額，
+            讓「我不填的話會算成多少」一眼就看得到。
+          */}
+          <input
+            id={inputId}
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            placeholder={previous === null ? '0' : formatAmountWhileTyping(String(previous))}
+            value={line.raw}
+            onChange={(e) => onChange(formatAmountWhileTyping(e.target.value))}
+            onFocus={(e) => e.currentTarget.select()}
+            className={cn(
+              'w-28 min-w-0 rounded-xl bg-sunken px-2.5 py-2 text-right font-medium tabular-nums',
+              'text-ink ring-1 ring-hairline placeholder:font-normal placeholder:text-ink-muted',
+              'focus:outline-2 focus:outline-offset-0 focus:outline-brand',
+            )}
+          />
+        </div>
 
-        {account.currency === 'USD' && amountTwd !== null && (
-          <p className="mt-1 text-sm text-ink-muted tnum">
-            ≈ {formatTwd(amountTwd)}（匯率 {usdRate}）
-          </p>
+        {entered !== null && previous !== null && (
+          <DeltaBadge
+            delta={delta(entered * rate, previous * rate)}
+            invert={account.is_liability}
+            showPercent={false}
+            size="sm"
+            className="mt-0.5"
+          />
         )}
-
-        {previousAmount !== null && (
-          <div className="mt-4 flex items-center justify-between gap-3 border-t border-hairline pt-3">
-            <div className="min-w-0 text-sm">
-              <p className="text-ink-muted">上次（{view.lastUpdated}）</p>
-              <p className="font-medium text-ink tnum">
-                {formatMoney(previousAmount, account.currency)}
-              </p>
-            </div>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => onChange(formatAmountWhileTyping(String(previousAmount)))}
-            >
-              沿用上次
-            </Button>
-          </div>
-        )}
-
-        {entered !== null && previousAmount !== null && (
-          <div className="mt-3">
-            <DeltaBadge
-              delta={delta(entered * rate, previousAmount * rate)}
-              invert={account.is_liability}
-            />
-          </div>
-        )}
-      </Card>
-
-      {previousAmount === null && (
-        <p className="px-1 text-sm text-ink-muted">
-          這個帳戶還沒有歷史紀錄。跳過的話這次就不會被計入。
-        </p>
-      )}
+      </div>
     </div>
   )
 }

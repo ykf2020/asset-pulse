@@ -1,29 +1,13 @@
 import { Archive, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ACCOUNT_TYPE_LABEL, type AccountType } from '@shared/model'
 import { AccountRow } from '@/components/AccountRow'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, LoadingBlock } from '@/components/ui/Feedback'
 import { useOverview } from '@/hooks/useData'
-import type { AccountView } from '@/lib/derive'
-import { TYPE_CHART_ORDER } from '@/lib/palette'
-
-/** 負債自成一組擺最後，其餘按類型的既定順序分組 */
-function groupAccounts(views: AccountView[]): { label: string; items: AccountView[] }[] {
-  const liabilities = views.filter((v) => v.account.is_liability)
-  const assets = views.filter((v) => !v.account.is_liability)
-
-  const groups: { label: string; items: AccountView[] }[] = []
-  for (const type of TYPE_CHART_ORDER) {
-    const items = assets.filter((v) => v.account.type === type)
-    if (items.length) groups.push({ label: ACCOUNT_TYPE_LABEL[type as AccountType], items })
-  }
-  if (liabilities.length) groups.push({ label: '負債', items: liabilities })
-  return groups
-}
+import { groupAccounts } from '@/lib/grouping'
 
 export function Accounts() {
   const { overview } = useOverview()
