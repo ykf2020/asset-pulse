@@ -62,7 +62,7 @@ function totalsOf(lines: Line[]): Totals {
 
 export function Review() {
   const navigate = useNavigate()
-  const { overview } = useOverview()
+  const { data, overview } = useOverview()
   const submit = useSubmitReview()
 
   const fx = useQuery({
@@ -75,7 +75,16 @@ export function Review() {
   const [rateInput, setRateInput] = useState('')
   const [draft, setDraft] = useState<Draft>({})
   const [step, setStep] = useState(0)
-  const [done, setDone] = useState<{ queued: boolean; carriedForward: string[] } | null>(null)
+  const [done, setDone] = useState<{
+    queued: boolean
+    merged: boolean
+    carriedForward: string[]
+    addedAccounts: string[]
+    updatedCount: number
+  } | null>(null)
+
+  /** 選到的日期已經盤點過的話，這次送出會併進那一筆而不是另外開一筆 */
+  const existingReview = data?.reviews.find((r) => r.date === date)
 
   const views = overview?.accounts ?? []
   const hasUsd = views.some((v) => v.account.currency === 'USD')
@@ -128,7 +137,10 @@ export function Review() {
 
     setDone({
       queued: result.status === 'queued',
+      merged: result.status === 'sent' ? result.merged : Boolean(existingReview),
       carriedForward: result.status === 'sent' ? result.carriedForward : [],
+      addedAccounts: result.status === 'sent' ? result.addedAccounts : [],
+      updatedCount: result.status === 'sent' ? result.updatedCount : 0,
     })
   }
 
@@ -149,16 +161,32 @@ export function Review() {
         </div>
 
         <div>
-          <h1 className="text-xl font-semibold">{done.queued ? '已存在這台裝置' : '盤點完成'}</h1>
+          <h1 className="text-xl font-semibold">
+            {done.queued ? '已存在這台裝置' : done.merged ? '已併入當天的盤點' : '盤點完成'}
+          </h1>
           <p className="mt-1 text-sm text-ink-muted">
             {done.queued
               ? '目前沒有網路，恢復連線後會自動寫進 Google Sheet。'
-              : `${formatDateFull(date)} 的紀錄已寫入 Google Sheet。`}
+              : done.merged
+                ? `${formatDateFull(date)} 原本就有一筆盤點，這次的內容已經併進去。`
+                : `${formatDateFull(date)} 的紀錄已寫入 Google Sheet。`}
           </p>
         </div>
 
         <p className="text-3xl font-semibold tracking-tight">{formatTwd(totals.netWorth)}</p>
         {overview.hasReviews && <DeltaBadge delta={netDelta} />}
+
+        {done.addedAccounts.length > 0 && (
+          <Notice tone="success" title="這次補進了" className="text-left">
+            {done.addedAccounts.join('、')}
+          </Notice>
+        )}
+
+        {done.merged && done.updatedCount > 0 && (
+          <Notice tone="info" className="text-left">
+            更新了 {done.updatedCount} 個帳戶的金額，其餘維持當天原本填的值。
+          </Notice>
+        )}
 
         {done.carriedForward.length > 0 && (
           <Notice tone="info" title="以下帳戶沿用了上次的金額" className="text-left">
@@ -256,8 +284,16 @@ export function Review() {
               )}
             </Card>
 
+            {existingReview && (
+              <Notice tone="info" title="這一天已經盤點過了">
+                送出後會<strong>併入</strong>那一筆，不會另外開一筆。只有你這次填的帳戶會被更新，
+                跳過的維持當天原本的金額。
+              </Notice>
+            )}
+
             <p className="px-1 text-sm text-ink-muted">
-              接下來會一個帳戶一頁，共 {views.length} 個。沒改變的可以直接跳過。
+              接下來會一個帳戶一頁，共 {views.length} 個。
+              {existingReview ? '不用改的直接跳過。' : '沒改變的可以直接跳過，會沿用上次的金額。'}
             </p>
           </div>
         )}
@@ -354,7 +390,7 @@ export function Review() {
       <footer className="sticky bottom-0 border-t border-hairline bg-surface/90 px-4 py-3 backdrop-blur-xl safe-bottom">
         {step === lastStep ? (
           <Button block size="lg" loading={submit.isPending} onClick={() => void send()}>
-            送出盤點
+            {existingReview ? '併入當天的盤點' : '送出盤點'}
           </Button>
         ) : (
           <div className="flex gap-3">

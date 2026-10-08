@@ -184,11 +184,18 @@ export const api = {
       query: { id },
     }),
 
-  createReview: (input: ReviewInput & { force?: boolean }) =>
-    request<{ review: Review; snapshots: Snapshot[]; carriedForward: string[] }>(
-      '/api/reviews',
-      { method: 'POST', body: input },
-    ),
+  createReview: (input: ReviewInput) =>
+    request<{
+      review: Review
+      snapshots: Snapshot[]
+      /** 併入了同一天已存在的那一筆，而不是新開一筆 */
+      merged: boolean
+      /** 這次才補進那筆盤點的帳戶 */
+      addedAccounts: string[]
+      /** 併入時被改動的既有明細筆數 */
+      updatedCount: number
+      carriedForward: string[]
+    }>('/api/reviews', { method: 'POST', body: input }),
 
   updateReview: (
     id: string,

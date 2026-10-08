@@ -97,7 +97,7 @@ export interface SyncState {
   pending: PendingReview[]
   syncing: boolean
   refresh: () => Promise<void>
-  flush: (options?: { force?: boolean }) => Promise<void>
+  flush: () => Promise<void>
   discard: (id: string) => Promise<void>
 }
 
@@ -111,7 +111,7 @@ export function useSync(enabled: boolean): SyncState {
   }, [])
 
   const flush = useCallback(
-    async (options?: { force?: boolean }) => {
+    async () => {
       if (!navigator.onLine) return
       const queue = await listPending()
       if (queue.length === 0) {
@@ -124,12 +124,11 @@ export function useSync(enabled: boolean): SyncState {
 
       for (const item of queue) {
         try {
-          await api.createReview({ ...item.payload, force: options?.force ?? false })
+          await api.createReview(item.payload)
           await removePending(item.id)
           changed = true
         } catch (error) {
           if (error instanceof OfflineError) break
-          // 衝突（同一天已有紀錄）保留在佇列裡，讓使用者自己決定強制送出還是捨棄
           const message =
             error instanceof ApiError ? error.message : '送出失敗，稍後會再試一次'
           await markPendingFailed(item.id, message)

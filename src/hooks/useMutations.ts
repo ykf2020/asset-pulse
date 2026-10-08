@@ -43,7 +43,13 @@ export function useReorderAccounts() {
 }
 
 export type SubmitReviewResult =
-  | { status: 'sent'; carriedForward: string[] }
+  | {
+      status: 'sent'
+      merged: boolean
+      carriedForward: string[]
+      addedAccounts: string[]
+      updatedCount: number
+    }
   | { status: 'queued' }
 
 /**
@@ -52,15 +58,20 @@ export type SubmitReviewResult =
  */
 export function useSubmitReview() {
   const invalidate = useInvalidateData()
-  return useMutation<SubmitReviewResult, Error, ReviewInput & { force?: boolean }>({
+  return useMutation<SubmitReviewResult, Error, ReviewInput>({
     mutationFn: async (input) => {
       try {
         const result = await api.createReview(input)
-        return { status: 'sent', carriedForward: result.carriedForward }
+        return {
+          status: 'sent',
+          merged: result.merged,
+          carriedForward: result.carriedForward,
+          addedAccounts: result.addedAccounts,
+          updatedCount: result.updatedCount,
+        }
       } catch (error) {
         if (error instanceof OfflineError) {
-          const { force: _force, ...payload } = input
-          await enqueueReview(payload)
+          await enqueueReview(input)
           return { status: 'queued' }
         }
         throw error
