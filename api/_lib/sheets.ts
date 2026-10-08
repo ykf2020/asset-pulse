@@ -1,6 +1,11 @@
 import { JWT } from 'google-auth-library'
 import { columnLetter } from '../../shared/sheets-schema.js'
 import { SheetsError } from './errors.js'
+import {
+  describePrivateKeyProblem,
+  isKeyDecodeError,
+  normalizePrivateKey,
+} from './private-key.js'
 
 const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets'
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
@@ -25,8 +30,13 @@ let cachedClient: JWT | null = null
 
 function client(): JWT {
   if (cachedClient) return cachedClient
-  // Vercel 環境變數裡的換行會是字面上的 \n，要還原
-  const privateKey = requireEnv('GOOGLE_PRIVATE_KEY').replace(/\\n/g, '\n')
+
+  // 環境變數裡的金鑰可能帶著外層引號或字面上的 \n，先整理成合法的 PEM
+  const privateKey = normalizePrivateKey(process.env.GOOGLE_PRIVATE_KEY)
+  if (!privateKey) {
+    throw new SheetsError(describePrivateKeyProblem(process.env.GOOGLE_PRIVATE_KEY)!, 500)
+  }
+
   cachedClient = new JWT({
     email: requireEnv('GOOGLE_SERVICE_ACCOUNT_EMAIL'),
     key: privateKey,
@@ -42,10 +52,36 @@ async function authHeader(): Promise<string> {
     return `Bearer ${token.token}`
   } catch (err) {
     cachedClient = null
-    throw new SheetsError(
-      `Google 認證失敗，請確認 service account 金鑰是否正確：${(err as Error).message}`,
-      500,
-    )
+    if (err instanceof SheetsError) throw err
+
+    // OpenSSL 對格式壞掉的 PEM 只會回 `DECODER routines::unsupported`，
+    // 把它翻譯成看得懂、改得動的說明
+    if (isKeyDecodeError(err)) {
+      throw new SheetsError(
+        describePrivateKeyProblem(process.env.GOOGLE_PRIVATE_KEY) ??
+          'Google 無法讀取這把 service account 金鑰。請從 JSON 金鑰檔重新複製 private_key，' +
+            '或在 GCP 上重新產生一把金鑰。',
+        500,
+      )
+    }
+
+    const message = (err as Error).message ?? ''
+    if (/invalid_grant/i.test(message)) {
+      throw new SheetsError(
+        'Google 拒絕了這把金鑰（invalid_grant）。常見原因：金鑰已被刪除或停用、' +
+          'service account 被移除，或伺服器時間不同步。請到 GCP 確認金鑰仍然有效。',
+        500,
+      )
+    }
+    if (/invalid_client|unauthorized_client/i.test(message)) {
+      throw new SheetsError(
+        'Google 不認得這個 service account。請確認 GOOGLE_SERVICE_ACCOUNT_EMAIL ' +
+          '與金鑰來自同一個服務帳戶。',
+        500,
+      )
+    }
+
+    throw new SheetsError(`Google 認證失敗：${message}`, 500)
   }
 }
 

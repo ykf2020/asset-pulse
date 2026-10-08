@@ -1,25 +1,34 @@
-import { Delete, LockKeyhole } from 'lucide-react'
+import { Check, Delete, LockKeyhole, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/app/auth'
 import { Notice } from '@/components/ui/Feedback'
-import { api, ApiError, OfflineError } from '@/lib/api'
+import { api, ApiError, OfflineError, type ServerHealth } from '@/lib/api'
 import { cn } from '@/lib/cn'
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'] as const
 const MAX_LENGTH = 12
+
+type CheckKey = keyof ServerHealth['checks']
+
+const CHECK_LABELS: readonly (readonly [CheckKey, string])[] = [
+  ['pin', 'PIN 設定（APP_PIN_HASH / AUTH_SECRET）'],
+  ['sheetId', 'Google Sheet ID'],
+  ['serviceAccountEmail', 'Service account email'],
+  ['privateKey', 'Service account 金鑰格式'],
+]
 
 export function Unlock() {
   const { unlock } = useAuth()
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [configured, setConfigured] = useState<boolean | null>(null)
+  const [health, setHealth] = useState<ServerHealth | null>(null)
 
   useEffect(() => {
     void api
       .checkServer()
-      .then((r) => setConfigured(r.configured))
-      .catch(() => setConfigured(null))
+      .then(setHealth)
+      .catch(() => setHealth(null))
   }, [])
 
   const submit = useCallback(
@@ -88,9 +97,24 @@ export function Unlock() {
 
         <div className="min-h-12 w-full">
           {error && <Notice tone="error">{error}</Notice>}
-          {!error && configured === false && (
-            <Notice tone="warning" title="伺服器尚未設定完成">
-              請先在 Vercel（或 .env.local）填好 Google Sheet 與 PIN 的環境變數。
+          {!error && health && !health.configured && (
+            <Notice tone="warning" title="伺服器設定還沒完成" className="text-left">
+              {health.hint ?? '請在 Vercel（或 .env.local）補齊下列環境變數。'}
+              <ul className="mt-2 space-y-0.5">
+                {CHECK_LABELS.map(([key, label]) => (
+                  <li key={key} className="flex items-center gap-1.5">
+                    {health.checks[key] ? (
+                      <Check className="size-4 shrink-0 text-good" aria-hidden />
+                    ) : (
+                      <X className="size-4 shrink-0 text-critical" aria-hidden />
+                    )}
+                    <span>
+                      {label}
+                      <span className="sr-only">{health.checks[key] ? '：正常' : '：有問題'}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </Notice>
           )}
         </div>

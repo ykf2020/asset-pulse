@@ -130,6 +130,18 @@ export interface DataPayload {
   fetchedAt: string
 }
 
+export interface ServerHealth {
+  configured: boolean
+  checks: {
+    pin: boolean
+    sheetId: boolean
+    serviceAccountEmail: boolean
+    privateKey: boolean
+  }
+  /** 環境變數格式有問題時的具體說明（不含任何金鑰內容） */
+  hint?: string
+}
+
 export interface FxResult {
   rate: number
   source: 'live' | 'last_review' | 'fallback'
@@ -138,7 +150,7 @@ export interface FxResult {
 }
 
 export const api = {
-  checkServer: () => request<{ configured: boolean }>('/api/auth', { auth: false }),
+  checkServer: () => request<ServerHealth>('/api/auth', { auth: false }),
 
   login: (pin: string) =>
     request<{ token: string; expiresAt: string }>('/api/auth', {

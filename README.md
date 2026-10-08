@@ -74,11 +74,17 @@ npm run pin          # 產生 APP_PIN_HASH 與 AUTH_SECRET，貼進 .env.local
 |---|---|
 | `SHEET_ID` | 試算表網址 |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | JSON 金鑰的 `client_email` |
-| `GOOGLE_PRIVATE_KEY` | JSON 金鑰的 `private_key`（整串用雙引號包住，換行保留成 `\n`） |
+| `GOOGLE_PRIVATE_KEY` | JSON 金鑰的 `private_key` |
 | `APP_PIN_HASH` | `npm run pin` |
 | `AUTH_SECRET` | `npm run pin` |
 
 同一組值也要設到 Vercel 專案的 Environment Variables。
+
+> **貼 `GOOGLE_PRIVATE_KEY` 時注意**
+> `.env.local` 的值含換行，必須用雙引號包住；但 **Vercel 的輸入框是字面值，不要加引號** ——
+> 加了的話引號會變成金鑰的一部分，Google 會回 `error:1E08010C:DECODER routines::unsupported`。
+> 程式會自動去掉外層引號、還原 `\n`，所以兩種貼法其實都救得回來；真的壞掉時，
+> PIN 畫面會逐項列出是哪個環境變數有問題，而不是丟 OpenSSL 的原始錯誤給你。
 
 ---
 

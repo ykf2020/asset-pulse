@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import handler from '../../api/auth.js'
@@ -59,6 +60,9 @@ function mockReq(method: string, body?: unknown): VercelRequest {
   } as unknown as VercelRequest
 }
 
+const { privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 })
+const PEM = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
+
 const originalEnv = { ...process.env }
 
 beforeEach(() => {
@@ -66,7 +70,7 @@ beforeEach(() => {
   process.env.APP_PIN_HASH = hashPin('482913')
   process.env.SHEET_ID = 'sheet-id'
   process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL = 'x@y.iam.gserviceaccount.com'
-  process.env.GOOGLE_PRIVATE_KEY = 'key'
+  process.env.GOOGLE_PRIVATE_KEY = PEM
 })
 
 afterEach(() => {
@@ -104,12 +108,45 @@ describe('POST /api/auth', () => {
     expect(out.statusCode).toBe(400)
   })
 
-  it('GET 回報伺服器設定是否完整', async () => {
+  it('GET 在設定齊全時回報 configured', async () => {
     const out = mockRes()
     await handler(mockReq('GET'), out.res)
 
     expect(out.statusCode).toBe(200)
-    expect(out.body).toEqual({ configured: true })
+    expect(out.body).toMatchObject({
+      configured: true,
+      checks: { pin: true, sheetId: true, serviceAccountEmail: true, privateKey: true },
+    })
+  })
+
+  it('GET 指出是哪一項環境變數有問題', async () => {
+    // 貼進 Vercel 時連外層引號一起帶進來 —— 這個版本是可以自動救回來的
+    process.env.GOOGLE_PRIVATE_KEY = `"${PEM.replace(/\n/g, '\\n')}"`
+    const quoted = mockRes()
+    await handler(mockReq('GET'), quoted.res)
+    expect(quoted.body).toMatchObject({ configured: true })
+
+    // 真的壞掉的金鑰要被指出來，並附上可行動的說明
+    process.env.GOOGLE_PRIVATE_KEY = '只複製到一半的東西'
+    process.env.SHEET_ID = ''
+    const broken = mockRes()
+    await handler(mockReq('GET'), broken.res)
+
+    expect(broken.body).toMatchObject({
+      configured: false,
+      checks: { pin: true, sheetId: false, privateKey: false },
+    })
+    expect((broken.body as { hint: string }).hint).toMatch(/BEGIN PRIVATE KEY/)
+  })
+
+  it('健檢回應不含任何環境變數的內容', async () => {
+    const out = mockRes()
+    await handler(mockReq('GET'), out.res)
+
+    const serialized = JSON.stringify(out.body)
+    expect(serialized).not.toContain('MII')
+    expect(serialized).not.toContain(process.env.APP_PIN_HASH!)
+    expect(serialized).not.toContain('sheet-id')
   })
 
   it('環境變數沒設好時回 500 的 JSON，而不是無訊息崩潰', async () => {
