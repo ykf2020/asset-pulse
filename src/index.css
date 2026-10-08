@@ -46,6 +46,11 @@
     --s6: #008300;
     --s7: #4a3aa7;
     --s8: #e34948;
+
+    /* 負債專屬角色色（永遠不進資產配置圖，不佔分類色槽） */
+    --liability: #eb6834;
+    /* 「其他／未分類」與圓環的收納桶：剩餘項用中性灰，不跟真正的分類搶顏色 */
+    --slice-other: #898781;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -78,6 +83,9 @@
       --s6: #008300;
       --s7: #9085e9;
       --s8: #e66767;
+
+      --liability: #d95926;
+      --slice-other: #898781;
     }
   }
 
@@ -110,6 +118,9 @@
     --s6: #008300;
     --s7: #9085e9;
     --s8: #e66767;
+
+    --liability: #d95926;
+    --slice-other: #898781;
   }
 }
 
@@ -144,6 +155,9 @@
   --color-s6: var(--s6);
   --color-s7: var(--s7);
   --color-s8: var(--s8);
+
+  --color-liability: var(--liability);
+  --color-slice-other: var(--slice-other);
 
   --font-sans:
     system-ui, -apple-system, 'Segoe UI', 'Noto Sans TC', 'PingFang TC',

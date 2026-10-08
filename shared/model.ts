@@ -4,33 +4,40 @@ import { z } from 'zod'
 /* 列舉與中文標籤                                                       */
 /* ------------------------------------------------------------------ */
 
+/**
+ * 順序大致依流動性排 —— 它同時決定了新增帳戶時下拉選單的順序、帳戶列表的
+ * 分組順序，以及配置圓環各段的排列順序。
+ */
 export const ACCOUNT_TYPES = [
   'bank',
+  'epay',
+  'cash',
+  'stock',
   'futures',
   'crypto',
-  'stock',
-  'cash',
-  'loan',
   'property',
   'vehicle',
+  'loan',
   'other',
 ] as const
 export type AccountType = (typeof ACCOUNT_TYPES)[number]
 
 export const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   bank: '銀行帳戶',
+  epay: '電子支付',
+  cash: '現金',
+  stock: '證券',
   futures: '期貨戶',
   crypto: '虛擬貨幣',
-  stock: '證券',
-  cash: '現金',
-  loan: '貸款',
   property: '房產',
   vehicle: '車輛',
+  loan: '貸款',
   other: '其他',
 }
 
 /** 每種類型輸入時的提示，讓「填哪個數字」沒有疑問 */
 export const ACCOUNT_TYPE_HINT: Partial<Record<AccountType, string>> = {
+  epay: '填入儲值餘額，例如 iPASS MONEY、LINE Pay、街口支付',
   futures: '填入帳戶權益數',
   crypto: '填入總資產估值',
   loan: '填入目前剩餘本金',

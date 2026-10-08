@@ -1,7 +1,7 @@
 import type { Totals } from '@shared/money'
 import { cn } from '@/lib/cn'
 import { formatPercent, formatTwd } from '@/lib/format'
-import { LIABILITY_COLOR_VAR, NET_COLOR_VAR } from '@/lib/palette'
+import { ASSET_COLOR_VAR, LIABILITY_COLOR_VAR } from '@/lib/palette'
 
 interface Row {
   key: string
@@ -17,7 +17,7 @@ interface Row {
  */
 export function AssetLiabilityBars({ totals }: { totals: Totals }) {
   const rows: Row[] = [
-    { key: 'assets', label: '總資產', value: totals.assets, color: NET_COLOR_VAR },
+    { key: 'assets', label: '總資產', value: totals.assets, color: ASSET_COLOR_VAR },
     { key: 'liabilities', label: '總負債', value: totals.liabilities, color: LIABILITY_COLOR_VAR },
   ]
 

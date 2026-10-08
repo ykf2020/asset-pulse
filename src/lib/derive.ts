@@ -18,7 +18,13 @@ import {
 } from '@shared/money'
 import type { DataPayload } from './api'
 import { daysSince } from './format'
-import { MAX_DONUT_SLICES, TYPE_CHART_ORDER, TYPE_COLOR_VAR, CURRENCY_COLOR_VAR } from './palette'
+import {
+  CURRENCY_COLOR_VAR,
+  MAX_DONUT_SLICES,
+  OTHER_SLICE_COLOR_VAR,
+  TYPE_CHART_ORDER,
+  TYPE_COLOR_VAR,
+} from './palette'
 
 export interface AccountView {
   account: Account
@@ -182,7 +188,7 @@ function buildSlices<K extends string>(
     result.push({
       key: '__other__',
       label: '其他',
-      color: 'var(--s8)',
+      color: OTHER_SLICE_COLOR_VAR,
       amountTwd: otherAmount,
       share: toShare(otherAmount),
     })
