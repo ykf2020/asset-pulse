@@ -103,6 +103,7 @@ npx vercel dev       # 前端 + /api 一起跑
 
 | 指令 | 作用 |
 |---|---|
+| `npm run check:google` | **連線診斷**：拿 `.env.local` 真的去連一次 Google，逐項檢查金鑰格式、認證、試算表讀寫權限 |
 | `npm test` | 單元測試 + 畫面 smoke test |
 | `npm run typecheck` | TypeScript 檢查 |
 | `npm run build` | 正式建置（含 PWA service worker） |
