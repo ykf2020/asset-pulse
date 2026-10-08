@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Check, CloudUpload, SkipForward, X } from 'lucide-react'
+import { Check, ChevronLeft, CloudUpload, SkipForward, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ACCOUNT_TYPE_HINT, ACCOUNT_TYPE_LABEL, type ReviewEntryInput } from '@shared/model'
@@ -123,6 +123,13 @@ export function Review() {
     else setStep((s) => s - 1)
   }
 
+  /** 直接離開整個盤點流程。已經填過東西就先問一聲，避免白做一輪。 */
+  function cancel() {
+    const hasInput = Object.values(draft).some((v) => v.trim() !== '')
+    if (hasInput && !window.confirm('要放棄這次盤點嗎？已經填的內容不會儲存。')) return
+    navigate('/')
+  }
+
   async function send() {
     const entries: ReviewEntryInput[] = lines
       .filter((l) => l.entered !== null)
@@ -208,15 +215,24 @@ export function Review() {
   return (
     <div className="flex min-h-dvh flex-col safe-top safe-bottom">
       <header className="px-4 pt-3 pb-2">
+        {/*
+          左右兩個按鈕是不同的動作：左邊退一步，右邊直接離開整個流程。
+          帳戶一多，只有「上一步」的話要按幾十次才出得去。
+        */}
         <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={back}
-            className="-ml-2 flex size-10 items-center justify-center rounded-full text-ink-2 active:bg-sunken"
-            aria-label="上一步"
-          >
-            <X className="size-5" aria-hidden />
-          </button>
+          {step === 0 ? (
+            <span className="size-10" />
+          ) : (
+            <button
+              type="button"
+              onClick={back}
+              className="-ml-2 flex size-10 items-center justify-center rounded-full text-ink-2 active:bg-sunken"
+              aria-label="上一步"
+            >
+              <ChevronLeft className="size-6" aria-hidden />
+            </button>
+          )}
+
           <p className="text-sm font-medium text-ink-2">
             {step === 0
               ? '盤點設定'
@@ -224,7 +240,15 @@ export function Review() {
                 ? '確認送出'
                 : `${step} / ${views.length}`}
           </p>
-          <span className="size-10" />
+
+          <button
+            type="button"
+            onClick={cancel}
+            className="-mr-2 flex size-10 items-center justify-center rounded-full text-ink-2 active:bg-sunken"
+            aria-label="結束盤點"
+          >
+            <X className="size-5" aria-hidden />
+          </button>
         </div>
 
         <div
