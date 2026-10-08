@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { requireAuthAll } from './_lib/auth'
-import { jsonBody, route } from './_lib/http'
-import { loadTables, readSettings, writeSettings } from './_lib/store'
+import { requireAuthAll } from './_lib/auth.js'
+import { jsonBody, route } from './_lib/http.js'
+import { loadTables, readSettings, writeSettings } from './_lib/store.js'
 
 const patchSchema = z.object({
   stale_days: z.number().int().min(1).max(365).optional(),

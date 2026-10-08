@@ -1,8 +1,8 @@
 import type { VercelRequest } from '@vercel/node'
 import { z } from 'zod'
-import { requireAuthAll } from '../_lib/auth'
-import { HttpError, jsonBody, queryParam, route } from '../_lib/http'
-import { deleteRows, getSheetMeta } from '../_lib/sheets'
+import { requireAuthAll } from '../_lib/auth.js'
+import { HttpError, jsonBody, queryParam, route } from '../_lib/http.js'
+import { deleteRows, getSheetMeta } from '../_lib/sheets.js'
 import {
   accountMap,
   appendToTable,
@@ -12,10 +12,10 @@ import {
   requireById,
   updateInTable,
   updateManyInTable,
-} from '../_lib/store'
-import { isoDate, reviewEntryInputSchema, type Review, type Snapshot } from '../../shared/model'
-import { dataOf, SHEETS, type Located } from '../../shared/sheets-schema'
-import { fxRateFor, sumTotals, toTwd } from '../../shared/money'
+} from '../_lib/store.js'
+import { isoDate, reviewEntryInputSchema, type Review, type Snapshot } from '../../shared/model.js'
+import { dataOf, SHEETS, type Located } from '../../shared/sheets-schema.js'
+import { fxRateFor, sumTotals, toTwd } from '../../shared/money.js'
 
 const patchSchema = z.object({
   date: isoDate.optional(),

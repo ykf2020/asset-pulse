@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { Account, ReviewInput, Snapshot } from './model'
-import { buildReview, CARRY_FORWARD_NOTE, ReviewBuildError } from './review'
+import type { Account, ReviewInput, Snapshot } from './model.js'
+import { buildReview, CARRY_FORWARD_NOTE, ReviewBuildError } from './review.js'
 
 const DEPS = {
   reviewId: 'rev_test',

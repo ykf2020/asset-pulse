@@ -1,0 +1,8 @@
+# 部署時不需要的東西。測試檔尤其重要：api/ 底下的每個 .ts 都會被
+# 當成 serverless function，測試檔若被上傳就會變成一個公開端點。
+tests
+**/*.test.ts
+**/*.test.tsx
+vitest.config.ts
+README.md
+.claude

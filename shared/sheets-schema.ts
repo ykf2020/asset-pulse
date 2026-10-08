@@ -4,7 +4,7 @@ import {
   reviewSchema,
   settingSchema,
   snapshotSchema,
-} from './model'
+} from './model.js'
 
 /**
  * 四個分頁的定義。`headers` 是「初始化時」寫入的表頭順序 —— 讀取時一律以

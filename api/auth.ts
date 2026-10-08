@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { checkRateLimit, clearRateLimit, issueToken, verifyPin } from './_lib/auth'
-import { HttpError, jsonBody, route } from './_lib/http'
+import { checkRateLimit, clearRateLimit, issueToken, verifyPin } from './_lib/auth.js'
+import { HttpError, jsonBody, route } from './_lib/http.js'
 
 const loginSchema = z.object({
   pin: z.string().min(4, 'PIN 至少 4 碼').max(32),

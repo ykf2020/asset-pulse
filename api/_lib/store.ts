@@ -7,7 +7,7 @@ import {
   type Review,
   type Setting,
   type Snapshot,
-} from '../../shared/model'
+} from '../../shared/model.js'
 import {
   dataOf,
   parseSheet,
@@ -16,9 +16,9 @@ import {
   type Located,
   type ParsedSheet,
   type SheetKey,
-} from '../../shared/sheets-schema'
-import { HttpError } from './http'
-import { appendRows, batchGetValues, updateRow, updateRows } from './sheets'
+} from '../../shared/sheets-schema.js'
+import { HttpError } from './http.js'
+import { appendRows, batchGetValues, updateRow, updateRows } from './sheets.js'
 
 const nano = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 12)
 

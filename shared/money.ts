@@ -1,4 +1,4 @@
-import type { Account, AccountType, Currency, Snapshot } from './model'
+import type { Account, AccountType, Currency, Snapshot } from './model.js'
 
 /**
  * 金額約定（整個 App 只有這一條規則，請勿在別處另外處理正負號）：

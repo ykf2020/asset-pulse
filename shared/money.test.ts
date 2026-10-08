@@ -9,8 +9,8 @@ import {
   sumTotals,
   toTwd,
   totalsFromSnapshots,
-} from './money'
-import type { Account, Snapshot } from './model'
+} from './money.js'
+import type { Account, Snapshot } from './model.js'
 
 function account(partial: Partial<Account> & { id: string }): Account {
   return {

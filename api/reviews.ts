@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { requireAuthAll } from './_lib/auth'
-import { HttpError, jsonBody, route } from './_lib/http'
+import { requireAuthAll } from './_lib/auth.js'
+import { HttpError, jsonBody, route } from './_lib/http.js'
 import {
   accountsOf,
   appendToTable,
@@ -8,10 +8,10 @@ import {
   newId,
   nowIso,
   type Workspace,
-} from './_lib/store'
-import { reviewInputSchema } from '../shared/model'
-import { buildReview, ReviewBuildError, type BuiltReview } from '../shared/review'
-import { dataOf } from '../shared/sheets-schema'
+} from './_lib/store.js'
+import { reviewInputSchema } from '../shared/model.js'
+import { buildReview, ReviewBuildError, type BuiltReview } from '../shared/review.js'
+import { dataOf } from '../shared/sheets-schema.js'
 
 const postSchema = reviewInputSchema.extend({
   /** 同一天已有紀錄時，預設擋下來（也順便讓離線佇列重送不會寫兩次） */

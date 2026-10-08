@@ -1,8 +1,8 @@
 import type { VercelRequest } from '@vercel/node'
 import { z } from 'zod'
-import { requireAuthAll } from './_lib/auth'
-import { HttpError, jsonBody, queryParam, route } from './_lib/http'
-import { deleteRows, getSheetMeta } from './_lib/sheets'
+import { requireAuthAll } from './_lib/auth.js'
+import { HttpError, jsonBody, queryParam, route } from './_lib/http.js'
+import { deleteRows, getSheetMeta } from './_lib/sheets.js'
 import {
   accountsOf,
   appendToTable,
@@ -12,14 +12,14 @@ import {
   requireById,
   updateInTable,
   updateManyInTable,
-} from './_lib/store'
+} from './_lib/store.js'
 import {
   accountInputSchema,
   accountPatchSchema,
   LIABILITY_TYPES,
   type Account,
-} from '../shared/model'
-import { dataOf, SHEETS } from '../shared/sheets-schema'
+} from '../shared/model.js'
+import { dataOf, SHEETS } from '../shared/sheets-schema.js'
 
 const reorderSchema = z.object({
   order: z.array(z.string().min(1)).min(1),

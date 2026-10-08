@@ -1,6 +1,6 @@
 import { JWT } from 'google-auth-library'
-import { columnLetter } from '../../shared/sheets-schema'
-import { SheetsError } from './errors'
+import { columnLetter } from '../../shared/sheets-schema.js'
+import { SheetsError } from './errors.js'
 
 const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets'
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets']

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { accountSchema, snapshotSchema } from './model'
-import { columnLetter, parseSheet, recordToRow, SHEETS } from './sheets-schema'
+import { accountSchema, snapshotSchema } from './model.js'
+import { columnLetter, parseSheet, recordToRow, SHEETS } from './sheets-schema.js'
 
 const ACCOUNT_HEADERS = SHEETS.accounts.headers
 

@@ -1,5 +1,5 @@
-import { requireAuthAll } from './_lib/auth'
-import { route } from './_lib/http'
+import { requireAuthAll } from './_lib/auth.js'
+import { route } from './_lib/http.js'
 import {
   addSheet,
   formatHeader,
@@ -7,10 +7,10 @@ import {
   getValues,
   renameSheet,
   writeHeaderRow,
-} from './_lib/sheets'
-import { SHEETS, type SheetKey } from '../shared/sheets-schema'
-import { DEFAULT_SETTINGS } from '../shared/model'
-import { appendRows } from './_lib/sheets'
+} from './_lib/sheets.js'
+import { SHEETS, type SheetKey } from '../shared/sheets-schema.js'
+import { DEFAULT_SETTINGS } from '../shared/model.js'
+import { appendRows } from './_lib/sheets.js'
 
 /** 全新 Google Sheet 的預設分頁名稱，可以直接拿來改名而不是另外新增 */
 const BLANK_DEFAULT_TITLES = ['Sheet1', '工作表1', 'Sheet 1']

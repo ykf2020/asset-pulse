@@ -9,3 +9,6 @@ dev-dist
 .DS_Store
 tsconfig.tsbuildinfo
 *.tsbuildinfo
+
+# 本地驗證 Vercel ESM 行為時的暫存產出
+.esm-check

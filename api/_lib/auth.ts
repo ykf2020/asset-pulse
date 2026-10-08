@@ -1,7 +1,7 @@
 import crypto from 'node:crypto'
 import type { VercelRequest } from '@vercel/node'
-import { HttpError } from './errors'
-import type { Handler } from './http'
+import { HttpError } from './errors.js'
+import type { Handler } from './http.js'
 
 const TOKEN_TTL_DAYS = 90
 

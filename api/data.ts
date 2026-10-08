@@ -1,8 +1,8 @@
-import { requireAuthAll } from './_lib/auth'
-import { route } from './_lib/http'
-import { accountsOf, loadWorkspace, readSettings } from './_lib/store'
-import { spreadsheetId } from './_lib/sheets'
-import { dataOf, SHEETS, type SheetKey } from '../shared/sheets-schema'
+import { requireAuthAll } from './_lib/auth.js'
+import { route } from './_lib/http.js'
+import { accountsOf, loadWorkspace, readSettings } from './_lib/store.js'
+import { spreadsheetId } from './_lib/sheets.js'
+import { dataOf, SHEETS, type SheetKey } from '../shared/sheets-schema.js'
 
 /**
  * GET /api/data — 一次回傳整個資料集。

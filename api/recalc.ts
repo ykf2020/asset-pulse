@@ -1,9 +1,9 @@
-import { requireAuthAll } from './_lib/auth'
-import { route } from './_lib/http'
-import { accountMap, loadWorkspace, updateManyInTable } from './_lib/store'
-import { round2, sumTotals } from '../shared/money'
-import type { Review, Snapshot } from '../shared/model'
-import type { Located } from '../shared/sheets-schema'
+import { requireAuthAll } from './_lib/auth.js'
+import { route } from './_lib/http.js'
+import { accountMap, loadWorkspace, updateManyInTable } from './_lib/store.js'
+import { round2, sumTotals } from '../shared/money.js'
+import type { Review, Snapshot } from '../shared/model.js'
+import type { Located } from '../shared/sheets-schema.js'
 
 /**
  * POST /api/recalc

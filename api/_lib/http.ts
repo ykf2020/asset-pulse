@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { ZodError } from 'zod'
-import { HttpError, SheetsError } from './errors'
+import { HttpError, SheetsError } from './errors.js'
 
 export { HttpError }
 

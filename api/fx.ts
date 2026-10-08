@@ -1,8 +1,8 @@
-import { requireAuthAll } from './_lib/auth'
-import { route } from './_lib/http'
-import { loadTables } from './_lib/store'
-import { dataOf } from '../shared/sheets-schema'
-import type { Review } from '../shared/model'
+import { requireAuthAll } from './_lib/auth.js'
+import { route } from './_lib/http.js'
+import { loadTables } from './_lib/store.js'
+import { dataOf } from '../shared/sheets-schema.js'
+import type { Review } from '../shared/model.js'
 
 const SOURCE_URL = 'https://open.er-api.com/v6/latest/USD'
 const CACHE_MS = 30 * 60 * 1000

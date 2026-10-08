@@ -22,12 +22,14 @@ export default defineConfig({
         },
       },
       {
-        // api/ 用到 node:crypto 與 child_process，跑在 node 環境
+        // 後端測試跑在 node 環境（用到 node:crypto、child_process）。
+        // 刻意放在 api/ 之外 —— Vercel 會把 api/ 底下每個 .ts 都變成一支
+        // serverless function，測試檔留在那裡會被當成端點部署出去。
         extends: true,
         test: {
           name: 'api',
           environment: 'node',
-          include: ['api/**/*.test.ts'],
+          include: ['tests/**/*.test.ts'],
         },
       },
     ],

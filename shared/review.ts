@@ -1,5 +1,5 @@
-import type { Account, Review, ReviewInput, Snapshot } from './model'
-import { fxRateFor, previousSnapshotByAccount, sumTotals, toTwd } from './money'
+import type { Account, Review, ReviewInput, Snapshot } from './model.js'
+import { fxRateFor, previousSnapshotByAccount, sumTotals, toTwd } from './money.js'
 
 export const CARRY_FORWARD_NOTE = '沿用上次'
 

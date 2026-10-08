@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { hashPin, issueToken, verifyPin, verifyToken } from './auth'
+import { hashPin, issueToken, verifyPin, verifyToken } from '../../api/_lib/auth.js'
 
 const SCRIPT = fileURLToPath(new URL('../../scripts/make-pin-hash.mjs', import.meta.url))
 
